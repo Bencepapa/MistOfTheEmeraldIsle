@@ -28,7 +28,8 @@ import {
   MAX_CORRUPTION, 
   MAX_AURAS, 
   EVENTS_PER_RUN, 
-  TRAITS 
+  TRAITS,
+  ALL_EVENTS
 } from './constants';
 import { 
   getInitialState, 
@@ -59,6 +60,18 @@ export default function App() {
     }
     lastGoldRef.current = state.runGold;
   }, [state.runGold]);
+
+  // Global Game Over Check - Safety net for corruption softlocks
+  useEffect(() => {
+    if (state.corruption >= MAX_CORRUPTION && state.phase !== "RUN_END") {
+      setState(prev => ({
+        ...prev,
+        phase: "RUN_END",
+        totalGold: prev.totalGold + prev.runGold,
+        message: "The mist has consumed your spirit. St. Patrick's Day remains lost.",
+      }));
+    }
+  }, [state.corruption, state.phase]);
 
   // Helper to check for game over and update state
   const withGameOverCheck = (updates: Partial<GameState> | ((prev: GameState) => Partial<GameState>)) => {
@@ -117,9 +130,9 @@ export default function App() {
         if (effectUpdates.runGold) effectUpdates.runGold = Math.round(effectUpdates.runGold * 1.5);
         if (effectUpdates.corruption) effectUpdates.corruption = Math.round(effectUpdates.corruption * 1.5);
       }
-      setState({ ...nextState, ...effectUpdates });
+      withGameOverCheck({ ...nextState, ...effectUpdates });
     } else {
-      setState(nextState);
+      withGameOverCheck(nextState);
     }
   };
 
@@ -680,7 +693,7 @@ export default function App() {
                     </div>
 
                     {/* Map Visualization */}
-                    <div className="flex-1 min-h-0 flex flex-col justify-between relative py-2 md:py-4">
+                    <div className="flex flex-col justify-start gap-8 md:gap-16 relative py-2 md:py-4">
                       {/* Current Layer Nodes */}
                       <div className="flex justify-around items-start gap-2 md:gap-4 relative z-10">
                         {(state.runProgress === 0 
@@ -730,14 +743,14 @@ export default function App() {
 
                             return currentVisibleNodes.map((currentNode, curIdx) => {
                               const startX = `${((curIdx + 0.5) / currentVisibleNodes.length) * 100}%`;
-                              const startY = "20%"; 
+                              const startY = "25%"; 
                               
                               return currentNode.nextNodes.map((nextNodeId) => {
                                 const nextNodeIdx = nextVisibleNodes.findIndex(n => n.id === nextNodeId);
                                 if (nextNodeIdx === -1) return null;
                                 
                                 const endX = `${((nextNodeIdx + 0.5) / nextVisibleNodes.length) * 100}%`;
-                                const endY = "80%";
+                                const endY = "75%";
                                 
                                 return (
                                   <motion.line 
@@ -759,7 +772,7 @@ export default function App() {
                       </div>
 
                       {/* Next Layer Nodes (Preview) */}
-                      <div className="flex justify-around items-end gap-2 md:gap-4 shrink-0 relative z-10">
+                      <div className="flex justify-around items-start gap-2 md:gap-4 shrink-0 relative z-10">
                         {state.gameMap.layers[state.runProgress + 1] ? state.gameMap.layers[state.runProgress + 1]
                           .filter(node => {
                             const currentVisibleNodes = (state.runProgress === 0 
